@@ -1,0 +1,11 @@
+version: '3.0'
+
+services:
+  python27:
+    build: services/python27
+
+  python38:
+    build: services/python38
+
+  ansible:
+    build: services/ansible

@@ -1,0 +1,31 @@
+pipeline {
+    agent {
+        node {
+            label SLAVE
+        }
+    }
+
+    environment {
+        COMPOSE_PROJECT_NAME="erctest"
+        GIT_BRANCH="temporary"
+        GIT_CMD="env -i git"
+    }
+
+    stages {
+        stage('Identify changed files') {
+            steps {
+                sh "sh precodereview/get_changed_files.sh"
+            }
+        }
+        stage('Running Dockerfile linter') {
+            steps {
+                sh "sh precodereview/dockerfile_linter.sh"
+            }
+        }
+    }
+    post {
+        always {
+            sh "sh precodereview/clean_up.sh"
+        }
+    }
+}

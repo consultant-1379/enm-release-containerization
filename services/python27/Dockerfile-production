@@ -1,0 +1,44 @@
+FROM armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/python:2.7.18-slim-buster
+
+RUN mkdir -p /usr/src/app
+
+WORKDIR /usr/src/app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends openssh-server=1:7.9p1-10+deb10u2 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN mkdir /var/run/sshd
+
+RUN sed -ri 's/^#?PermitRootLogin\s+.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN echo "root:shroot" | chpasswd
+
+COPY services/python27/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN /usr/bin/ssh-keygen -A
+COPY ./root_rsa_files/* /root/.ssh/
+RUN chmod 600 /root/.ssh/id_rsa
+RUN chmod 600 /root/.ssh/id_rsa.pub
+
+RUN useradd -u 1001 lciadm100
+COPY ./lciadm100_rsa_files/* /home/lciadm100/.ssh/
+RUN chown lciadm100:lciadm100 /home/lciadm100/.ssh/*
+RUN chmod 600 /home/lciadm100/.ssh/id_rsa
+RUN chmod 600 /home/lciadm100/.ssh/id_rsa.pub
+RUN chown -R lciadm100 /home/lciadm100
+
+RUN chown lciadm100:lciadm100 /usr/src/app/*
+RUN chown -R lciadm100 /usr/src/app
+
+ENV PYTHONPATH=/usr/src/app
+RUN echo PYTHONPATH=/usr/src/app >> /etc/environment
+
+USER lciadm100
+
+EXPOSE 22
+
+CMD ["/usr/sbin/sshd","-D"]

@@ -1,0 +1,57 @@
+pipeline {
+    agent {
+        node {
+            label SLAVE
+        }
+    }
+
+    stages {
+        stage('Retrieve id_rsa files') {
+            steps {
+                sh '''
+                    #!/bin/sh
+                    cp -r ~/.ssh/lciadm100_rsa_files ./
+                    cp -r ~/.ssh/root_rsa_files ./
+                '''
+            }
+        }
+        stage('Bump Version') {
+            steps {
+                sh "sh release/bump_version.sh"
+                script {
+                    IMAGE_VERSION = readFile('artifact.properties').trim()
+                }
+            }
+        }
+        stage('Build and Push Python27 Service') {
+            steps {
+                sh "sh release/build_and_push_service.sh \"enm_release_python27\" \"services/python27/Dockerfile-production\" \"${IMAGE_VERSION}\""
+            }
+        }
+        stage('Build and Push Python38 Service') {
+            steps {
+                sh "sh release/build_and_push_service.sh \"enm_release_python38\" \"services/python38/Dockerfile-production\" \"${IMAGE_VERSION}\""
+            }
+        }
+        stage('Build and Push Ansible Service') {
+            steps {
+                sh "sh release/build_and_push_service.sh \"enm_release_ansible\" \"services/ansible/Dockerfile-production\" \"${IMAGE_VERSION}\""
+            }
+        }
+        stage('Git tag version') {
+            steps {
+                sh "sh release/git_tag_version.sh \"${IMAGE_VERSION}\""
+            }
+        }
+        stage('Archive artifact properties file') {
+            steps {
+                   archiveArtifacts artifacts: 'artifact.properties', onlyIfSuccessful: true
+            }
+        }
+        stage('Cleanup unused Docker data') {
+            steps {
+                sh "docker system prune -a -f"
+            }
+        }
+    }
+}
